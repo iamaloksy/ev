@@ -12,7 +12,11 @@ const IS_SERVERLESS = Boolean(process.env.VERCEL);
 const app = express();
 const server = IS_SERVERLESS ? null : http.createServer(app);
 const io = IS_SERVERLESS
-  ? { emit: () => {} }
+  ? {
+      emit: () => {},
+      on: () => {},
+      off: () => {}
+    }
   : new Server(server, {
       cors: { origin: "*" }
     });
