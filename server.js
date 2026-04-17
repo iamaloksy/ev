@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const { Server } = require("socket.io");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
@@ -15,6 +17,9 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+
+const CLIENT_BUILD_PATH = path.join(__dirname, "build");
+const CLIENT_INDEX_PATH = path.join(CLIENT_BUILD_PATH, "index.html");
 
 const PORT = Number(process.env.BACKEND_PORT || process.env.PORT || 5000);
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -303,6 +308,36 @@ app.post("/admin-login", async (req, res) => {
     res.status(500).send("Login error: " + err.message);
   }
 });
+
+if (fs.existsSync(CLIENT_INDEX_PATH)) {
+  app.use(express.static(CLIENT_BUILD_PATH));
+
+  // Let React Router handle client-side routes in production builds.
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/socket.io")) {
+      return next();
+    }
+
+    if (req.path.startsWith("/stations") || req.path.startsWith("/bookings")) {
+      return next();
+    }
+
+    if (
+      req.path.startsWith("/book") ||
+      req.path.startsWith("/free") ||
+      req.path.startsWith("/set-price") ||
+      req.path.startsWith("/register") ||
+      req.path.startsWith("/login") ||
+      req.path.startsWith("/admin-register") ||
+      req.path.startsWith("/admin-login") ||
+      req.path.startsWith("/health")
+    ) {
+      return next();
+    }
+
+    return res.sendFile(CLIENT_INDEX_PATH);
+  });
+}
 
 async function startServer() {
   try {

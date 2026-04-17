@@ -13,10 +13,10 @@ import { io } from "socket.io-client";
 import { Line } from "react-chartjs-2";
 import "../style.css";
 
-const API_URL = "http://localhost:5000";
+const API_URL = process.env.REACT_APP_API_URL || "";
 const TIME_LABELS = ["9AM", "11AM", "1PM", "3PM", "5PM", "7PM"];
 const LIVE_USAGE = [25, 45, 70, 60, 85, 40];
-const socket = io(API_URL, {
+const socket = io(API_URL || window.location.origin, {
   transports: ["websocket"]
 });
 
