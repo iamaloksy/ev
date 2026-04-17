@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const API_URL = process.env.REACT_APP_API_URL || "";
+const API_URL = process.env.REACT_APP_API_URL || "/api";
 
 function StationList() {
   const [stations, setStations] = useState([]);

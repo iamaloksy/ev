@@ -2,10 +2,14 @@ import "../style.css";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-const API_URL = process.env.REACT_APP_API_URL || "";
-const socket = io(API_URL || window.location.origin, {
-  transports: ["websocket"]
-});
+const API_URL = process.env.REACT_APP_API_URL || "/api";
+const REALTIME_ENABLED = !API_URL.startsWith("/api");
+const socketHost = API_URL.startsWith("http") ? API_URL : window.location.origin;
+const socket = REALTIME_ENABLED
+  ? io(socketHost, {
+      transports: ["websocket"]
+    })
+  : null;
 
 
 export default function SlotBooking() {
@@ -19,15 +23,21 @@ useEffect(() => {
     .then(res => res.json())
     .then(setStations);
 
-  socket.on("connect", () => {
-    console.log("Socket connected:", socket.id);
-  });
+  if (socket) {
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
 
-  socket.on("update", data => {
-    setStations(data);
-  });
+    socket.on("update", data => {
+      setStations(data);
+    });
+  }
 
-  return () => socket.off("update");
+  return () => {
+    if (socket) {
+      socket.off("update");
+    }
+  };
 }, []);
 
 

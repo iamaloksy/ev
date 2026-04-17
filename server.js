@@ -8,12 +8,14 @@ const { Server } = require("socket.io");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 
+const IS_SERVERLESS = Boolean(process.env.VERCEL);
 const app = express();
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: { origin: "*" }
-});
+const server = IS_SERVERLESS ? null : http.createServer(app);
+const io = IS_SERVERLESS
+  ? { emit: () => {} }
+  : new Server(server, {
+      cors: { origin: "*" }
+    });
 
 app.use(cors());
 app.use(express.json());
@@ -73,6 +75,9 @@ const Admin = mongoose.model("Admin", adminSchema);
 const Station = mongoose.model("Station", stationSchema);
 const Booking = mongoose.model("Booking", bookingSchema);
 
+let seedCompleted = false;
+let dbConnectPromise = null;
+
 async function ensureSeedStations() {
   const count = await Station.countDocuments();
   if (count === 0) {
@@ -82,6 +87,49 @@ async function ensureSeedStations() {
 
 function sanitizeUser(user) {
   return { id: user._id, name: user.name, email: user.email };
+}
+
+async function connectToDatabase() {
+  if (mongoose.connection.readyState === 1) {
+    if (!seedCompleted) {
+      await ensureSeedStations();
+      seedCompleted = true;
+    }
+    return;
+  }
+
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is missing in .env");
+  }
+
+  if (!dbConnectPromise) {
+    dbConnectPromise = mongoose
+      .connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 })
+      .then(async () => {
+        if (!seedCompleted) {
+          await ensureSeedStations();
+          seedCompleted = true;
+        }
+      })
+      .catch((err) => {
+        dbConnectPromise = null;
+        throw err;
+      });
+  }
+
+  await dbConnectPromise;
+}
+
+if (IS_SERVERLESS) {
+  app.use(async (req, res, next) => {
+    try {
+      await connectToDatabase();
+      next();
+    } catch (err) {
+      console.error("Database connection failed:", err.message);
+      res.status(500).json({ ok: false, message: "Database unavailable" });
+    }
+  });
 }
 
 io.on("connection", socket => {
@@ -309,7 +357,7 @@ app.post("/admin-login", async (req, res) => {
   }
 });
 
-if (fs.existsSync(CLIENT_INDEX_PATH)) {
+if (!IS_SERVERLESS && fs.existsSync(CLIENT_INDEX_PATH)) {
   app.use(express.static(CLIENT_BUILD_PATH));
 
   // Let React Router handle client-side routes in production builds.
@@ -341,12 +389,7 @@ if (fs.existsSync(CLIENT_INDEX_PATH)) {
 
 async function startServer() {
   try {
-    if (!MONGODB_URI) {
-      throw new Error("MONGODB_URI is missing in .env");
-    }
-
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
-    await ensureSeedStations();
+    await connectToDatabase();
 
     console.log(`MongoDB connected: ${mongoose.connection.name}`);
 
@@ -363,4 +406,8 @@ mongoose.connection.on("error", err => {
   console.error("MongoDB connection error:", err.message);
 });
 
-startServer();
+if (!IS_SERVERLESS) {
+  startServer();
+}
+
+module.exports = app;

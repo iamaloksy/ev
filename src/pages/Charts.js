@@ -13,12 +13,16 @@ import { io } from "socket.io-client";
 import { Line } from "react-chartjs-2";
 import "../style.css";
 
-const API_URL = process.env.REACT_APP_API_URL || "";
+const API_URL = process.env.REACT_APP_API_URL || "/api";
 const TIME_LABELS = ["9AM", "11AM", "1PM", "3PM", "5PM", "7PM"];
 const LIVE_USAGE = [25, 45, 70, 60, 85, 40];
-const socket = io(API_URL || window.location.origin, {
-  transports: ["websocket"]
-});
+const REALTIME_ENABLED = !API_URL.startsWith("/api");
+const socketHost = API_URL.startsWith("http") ? API_URL : window.location.origin;
+const socket = REALTIME_ENABLED
+  ? io(socketHost, {
+      transports: ["websocket"]
+    })
+  : null;
 
 ChartJS.register(
   CategoryScale,
@@ -111,17 +115,21 @@ export default function Charts() {
 
     loadBookings();
 
-    socket.on("update", (data) => {
-      setStations(data);
-    });
+    if (socket) {
+      socket.on("update", (data) => {
+        setStations(data);
+      });
 
-    socket.on("booking:update", () => {
-      loadBookings();
-    });
+      socket.on("booking:update", () => {
+        loadBookings();
+      });
+    }
 
     return () => {
-      socket.off("update");
-      socket.off("booking:update");
+      if (socket) {
+        socket.off("update");
+        socket.off("booking:update");
+      }
     };
   }, [loadBookings]);
 

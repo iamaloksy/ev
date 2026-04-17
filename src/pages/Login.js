@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_URL = process.env.REACT_APP_API_URL || "";
+const API_URL = process.env.REACT_APP_API_URL || "/api";
 
 export default function Login({ loginClient, loginAdmin }) {
   const [isRegister, setIsRegister] = useState(false);

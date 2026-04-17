@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-const API_URL = process.env.REACT_APP_API_URL || "";
-const socket = io(API_URL || window.location.origin, {
-  transports: ["websocket"]
-});
+const API_URL = process.env.REACT_APP_API_URL || "/api";
+const REALTIME_ENABLED = !API_URL.startsWith("/api");
+const socketHost = API_URL.startsWith("http") ? API_URL : window.location.origin;
+const socket = REALTIME_ENABLED
+  ? io(socketHost, {
+      transports: ["websocket"]
+    })
+  : null;
 
 export default function Admin({ view = "overview" }) {
 
@@ -28,18 +32,22 @@ export default function Admin({ view = "overview" }) {
 
     loadBookings();
 
-    socket.on("update", data => {
-      setStations(data);
-      loadBookings();
-    });
+    if (socket) {
+      socket.on("update", data => {
+        setStations(data);
+        loadBookings();
+      });
 
-    socket.on("booking:update", () => {
-      loadBookings();
-    });
+      socket.on("booking:update", () => {
+        loadBookings();
+      });
+    }
 
     return () => {
-      socket.off("update");
-      socket.off("booking:update");
+      if (socket) {
+        socket.off("update");
+        socket.off("booking:update");
+      }
     };
   }, []);
 
