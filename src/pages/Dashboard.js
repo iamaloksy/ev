@@ -1,5 +1,5 @@
 import "../style.css";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "";
@@ -14,13 +14,13 @@ export default function Dashboard() {
   const clientName = localStorage.getItem("clientName");
   const clientEmail = localStorage.getItem("clientEmail");
 
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     const res = await fetch(`${API_URL}/bookings`);
     if (res.ok) {
       const data = await res.json();
       setBookings(data.filter((booking) => booking.clientEmail === clientEmail));
     }
-  };
+  }, [clientEmail]);
 
 useEffect(() => {
   fetch(`${API_URL}/stations`)
@@ -45,7 +45,7 @@ useEffect(() => {
     socket.off("update");
     socket.off("booking:update");
   };
-}, []);
+}, [loadBookings]);
 
 
   const zoneImages = {
